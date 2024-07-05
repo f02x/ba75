@@ -1,0 +1,81 @@
+const origSet = setTimeout;
+const timers = [];
+
+let i = 1;
+export const _setTimeout = function(cb, t, thisCtx, ...args) {
+  const index = i;
+  timers[index] = true;
+  origSet(() => timers[index] && cb.apply(thisCtx || {}, args), t);
+  return i++;
+};
+export const _clearTimeout = function(index) {
+  timers[index] = false;
+};
+
+export class FrameTimer {
+  fps = [];
+  target = 0;
+  lastRender = 0;
+  constructor(targetFps) {
+    this.target = 1000 / targetFps;
+  }
+  shouldRender() {
+    const t = Date.now();
+    while (this.fps.length > 0 && this.fps[0] < t - 1000) this.fps.shift();
+    this.fps.push(t);
+    if (this.fps.length === 1) {
+      this.lastRender = t;
+      return true;
+    }
+    const dt = 1000 / this.fps.length;
+    const dr = t - this.lastRender;
+    if (dt + dr < this.target) return false;
+    this.lastRender = t;
+    return true;
+  }
+}
+
+export class DelayTimer {
+  delay = 0;
+  lastTick = 0;
+  constructor(delay) {
+    this.delay = delay;
+  }
+  shouldTick() {
+    const t = Date.now();
+    if (t - this.lastTick > this.delay) {
+      this.lastTick = t;
+      return true;
+    }
+    return false;
+  }
+}
+
+const itemIdDict = Java.type('net.minecraft.item.Item').field_150901_e;
+const lowerInvF = Java.type('net.minecraft.client.gui.inventory.GuiChest').class.getDeclaredField('field_147015_w');
+lowerInvF.setAccessible(true);
+
+export function colorForNumber(n, max = 1) {
+    return (n > max * 0.75 ? '§2' :
+      n > max * 0.5 ? '§e' :
+        n > max * 0.25 ? '§6' :
+          '§4');
+}
+
+export function getItemId(item) {
+  return itemIdDict.func_177774_c(item.func_77973_b()).toString();
+}
+
+export function getLowerContainer(gui) {
+  return lowerInvF.get(gui);
+}
+
+export function listenInventory(inv, cb) {
+    const listener = new JavaAdapter(Java.type('net.minecraft.inventory.IInvBasic'), {
+      func_76316_a(inv) {
+        cb(inv);
+      }
+    });
+    inv.func_110134_a(listener);
+}
+
